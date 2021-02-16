@@ -1,10 +1,13 @@
 import warnings
 import numpy as np
+from enum import Enum
 from scipy.stats import norm
 from scipy.optimize import minimize
 
 
-def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10, y_max_params=None):
+def acq_max(
+    ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10, y_max_params=None
+):
     """
     A function to find the maximum of the acquisition function
 
@@ -41,16 +44,19 @@ def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10, y_ma
     """
 
     # Warm up with random points
-    x_tries = random_state.uniform(bounds[:, 0], bounds[:, 1],
-                                   size=(n_warmup, bounds.shape[0]))
+    x_tries = random_state.uniform(
+        bounds[:, 0], bounds[:, 1], size=(n_warmup, bounds.shape[0])
+    )
     ys = ac(x_tries, gp=gp, y_max=y_max)
     x_max = x_tries[ys.argmax()]
     max_acq = ys.max()
 
     # Explore the parameter space more thoroughly
-    x_seeds = random_state.uniform(bounds[:, 0], bounds[:, 1],
-                                   size=(1+n_iter+int(not y_max_params is None),
-                                   bounds.shape[0]))
+    x_seeds = random_state.uniform(
+        bounds[:, 0],
+        bounds[:, 1],
+        size=(1 + n_iter + int(not y_max_params is None), bounds.shape[0]),
+    )
     # Add the best candidate from the random sampling to the seeds so that the
     # optimization algorithm can try to walk up to that particular local maxima
     x_seeds[0] = x_max
@@ -58,13 +64,15 @@ def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10, y_ma
         # Add the provided best sample to the seeds so that the optimization
         # algorithm is aware of it and will attempt to find its local maxima
         x_seeds[1] = y_max_params
-    
+
     for x_try in x_seeds:
         # Find the minimum of minus the acquisition function
-        res = minimize(lambda x: -ac(x.reshape(1, -1), gp=gp, y_max=y_max),
-                       x_try.reshape(1, -1),
-                       bounds=bounds,
-                       method="L-BFGS-B")
+        res = minimize(
+            lambda x: -ac(x.reshape(1, -1), gp=gp, y_max=y_max),
+            x_try.reshape(1, -1),
+            bounds=bounds,
+            method="L-BFGS-B",
+        )
 
         # See if success
         if not res.success:
@@ -80,6 +88,12 @@ def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10, y_ma
     return np.clip(x_max, bounds[:, 0], bounds[:, 1])
 
 
+class ACQ(Enum):
+    ucb = 1  # Upper Confidence Bound
+    ei = 2  # Expected Improvement
+    poi = 3  # Probability of Improvement
+
+
 class UtilityFunction(object):
     """
     An object to compute the acquisition functions.
@@ -92,16 +106,21 @@ class UtilityFunction(object):
         self._kappa_decay_delay = kappa_decay_delay
 
         self.xi = xi
-        
+
         self._iters_counter = 0
 
-        if kind not in ['ucb', 'ei', 'poi']:
-            err = "The utility function " \
-                  "{} has not been implemented, " \
-                  "please choose one of ucb, ei, or poi.".format(kind)
-            raise NotImplementedError(err)
-        else:
-            self.kind = kind
+        if isinstance(kind, str):
+            if kind not in ["ucb", "ei", "poi"]:
+                err = (
+                    "The utility function "
+                    "{} has not been implemented, "
+                    "please choose one of ucb, ei, or poi.".format(kind)
+                )
+                raise NotImplementedError(err)
+            else:
+                kind = ACQ[kind]
+
+        self.kind = kind
 
     def update_params(self):
         self._iters_counter += 1
@@ -110,11 +129,11 @@ class UtilityFunction(object):
             self.kappa *= self._kappa_decay
 
     def utility(self, x, gp, y_max):
-        if self.kind == 'ucb':
+        if self.kind == ACQ.ucb:
             return self._ucb(x, gp, self.kappa)
-        if self.kind == 'ei':
+        if self.kind == ACQ.ei:
             return self._ei(x, gp, y_max, self.xi)
-        if self.kind == 'poi':
+        if self.kind == ACQ.poi:
             return self._poi(x, gp, y_max, self.xi)
 
     @staticmethod
@@ -130,8 +149,8 @@ class UtilityFunction(object):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             mean, std = gp.predict(x, return_std=True)
-  
-        a = (mean - y_max - xi)
+
+        a = mean - y_max - xi
         z = a / std
         return a * norm.cdf(z) + std * norm.pdf(z)
 
@@ -141,14 +160,12 @@ class UtilityFunction(object):
             warnings.simplefilter("ignore")
             mean, std = gp.predict(x, return_std=True)
 
-        z = (mean - y_max - xi)/std
+        z = (mean - y_max - xi) / std
         return norm.cdf(z)
 
 
 def load_logs(optimizer, logs):
-    """Load previous ...
-
-    """
+    """Load previous ..."""
     import json
 
     if isinstance(logs, str):
@@ -192,16 +209,16 @@ def ensure_rng(random_state=None):
 class Colours:
     """Print in nice colours."""
 
-    BLUE = '\033[94m'
-    BOLD = '\033[1m'
-    CYAN = '\033[96m'
-    DARKCYAN = '\033[36m'
-    END = '\033[0m'
-    GREEN = '\033[92m'
-    PURPLE = '\033[95m'
-    RED = '\033[91m'
-    UNDERLINE = '\033[4m'
-    YELLOW = '\033[93m'
+    BLUE = "\033[94m"
+    BOLD = "\033[1m"
+    CYAN = "\033[96m"
+    DARKCYAN = "\033[36m"
+    END = "\033[0m"
+    GREEN = "\033[92m"
+    PURPLE = "\033[95m"
+    RED = "\033[91m"
+    UNDERLINE = "\033[4m"
+    YELLOW = "\033[93m"
 
     @classmethod
     def _wrap_colour(cls, s, colour):
