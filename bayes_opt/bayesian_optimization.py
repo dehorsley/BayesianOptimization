@@ -137,7 +137,7 @@ class BayesianOptimization(Observable):
             maximize(). Otherwise it will evaluate it at the moment.
         """
         if lazy:
-            self._queue.add(params)
+            self._queue.put(params)
         else:
             self._space.probe(params)
             self.dispatch(Events.OPTIMIZATION_STEP)
