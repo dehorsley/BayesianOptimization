@@ -222,7 +222,8 @@ class TargetSpace(object):
         draw = self.sobol.random()
         bounds = self._bounds
 
-        return (bounds[:, 1] - bounds[:, 0]) * draw + bounds[:, 0]
+        data = (bounds[:, 1] - bounds[:, 0]) * draw + bounds[:, 0]
+        return data.ravel()
 
     def max(self):
         """Get maximum target value found and corresponding parametes."""
