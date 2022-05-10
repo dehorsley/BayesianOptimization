@@ -5,6 +5,8 @@ from bayes_opt import BayesianOptimization
 from bayes_opt.logger import ScreenLogger
 from bayes_opt.event import Events, DEFAULT_EVENTS
 
+from bayes_opt.util import ACQ
+
 
 def target_func(**kwargs):
     # arbitrary target func
