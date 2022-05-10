@@ -1,9 +1,11 @@
 import numpy as np
 from .util import ensure_rng
 
+from scipy.stats.qmc import Sobol
+
 
 def _hashable(x):
-    """ ensure that an point is hashable by a python dict """
+    """ensure that an point is hashable by a python dict"""
     return tuple(map(float, x))
 
 
@@ -22,6 +24,7 @@ class TargetSpace(object):
     >>> y = space.register_point(x)
     >>> assert self.max_point()['max_val'] == y
     """
+
     def __init__(self, target_func, pbounds, random_state=None):
         """
         Parameters
@@ -46,12 +49,14 @@ class TargetSpace(object):
         # Create an array with parameters bounds
         self._bounds = np.array(
             [item[1] for item in sorted(pbounds.items(), key=lambda x: x[0])],
-            dtype=np.float
+            dtype=np.float,
         )
 
         # preallocated memory for X and Y points
         self._params = np.empty(shape=(0, self.dim))
         self._target = np.empty(shape=(0))
+
+        self.sobol = Sobol(self.dim, seed=self.random_state)
 
         # keep track of unique points we have seen so far
         self._cache = {}
@@ -92,8 +97,8 @@ class TargetSpace(object):
             assert set(params) == set(self.keys)
         except AssertionError:
             raise ValueError(
-                "Parameters' keys ({}) do ".format(sorted(params)) +
-                "not match the expected set of keys ({}).".format(self.keys)
+                "Parameters' keys ({}) do ".format(sorted(params))
+                + "not match the expected set of keys ({}).".format(self.keys)
             )
         return np.asarray([params[key] for key in self.keys])
 
@@ -102,8 +107,8 @@ class TargetSpace(object):
             assert len(x) == len(self.keys)
         except AssertionError:
             raise ValueError(
-                "Size of array ({}) is different than the ".format(len(x)) +
-                "expected number of parameters ({}).".format(len(self.keys))
+                "Size of array ({}) is different than the ".format(len(x))
+                + "expected number of parameters ({}).".format(len(self.keys))
             )
         return dict(zip(self.keys, x))
 
@@ -118,8 +123,8 @@ class TargetSpace(object):
             assert x.size == self.dim
         except AssertionError:
             raise ValueError(
-                "Size of array ({}) is different than the ".format(len(x)) +
-                "expected number of parameters ({}).".format(len(self.keys))
+                "Size of array ({}) is different than the ".format(len(x))
+                + "expected number of parameters ({}).".format(len(self.keys))
             )
         return x
 
@@ -158,7 +163,7 @@ class TargetSpace(object):
         """
         x = self._as_array(params)
         if x in self:
-            raise KeyError('Data point {} is not unique'.format(x))
+            raise KeyError("Data point {} is not unique".format(x))
 
         # Insert data into unique dictionary
         self._cache[_hashable(x.ravel())] = target
@@ -213,19 +218,18 @@ class TargetSpace(object):
         array([[ 55.33253689,   0.54488318]])
         """
         # TODO: support integer, category, and basic scipy.optimize constraints
-        data = np.empty((1, self.dim))
-        for col, (lower, upper) in enumerate(self._bounds):
-            data.T[col] = self.random_state.uniform(lower, upper, size=1)
-        return data.ravel()
+
+        draw = self.sobol.random()
+        bounds = self._bounds
+
+        return (bounds[:, 1] - bounds[:, 0]) * draw + bounds[:, 0]
 
     def max(self):
         """Get maximum target value found and corresponding parametes."""
         try:
             res = {
-                'target': self.target.max(),
-                'params': dict(
-                    zip(self.keys, self.params[self.target.argmax()])
-                )
+                "target": self.target.max(),
+                "params": dict(zip(self.keys, self.params[self.target.argmax()])),
             }
         except ValueError:
             res = {}
